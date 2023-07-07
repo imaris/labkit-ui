@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,7 +38,6 @@ import net.imglib2.Interval;
 import net.imglib2.Localizable;
 import net.imglib2.Point;
 import net.imglib2.RandomAccess;
-import net.imglib2.Sampler;
 import net.imglib2.img.basictypeaccess.array.LongArray;
 import net.imglib2.roi.IterableRegion;
 import net.imglib2.type.logic.BitType;
@@ -143,12 +142,7 @@ public class SparseIterableRegion extends AbstractWrappedInterval<Interval>
 		}
 
 		@Override
-		public AbstractCursor<Void> copy() {
-			throw new UnsupportedOperationException();
-		}
-
-		@Override
-		public AbstractCursor<Void> copyCursor() {
+		public SparseRoiCursor copy() {
 			throw new UnsupportedOperationException();
 		}
 
@@ -206,18 +200,13 @@ public class SparseIterableRegion extends AbstractWrappedInterval<Interval>
 		}
 
 		@Override
-		public RandomAccess<BitType> copyRandomAccess() {
+		public RandomAccess<BitType> copy() {
 			return new SparseRoiRandomAccess(this);
 		}
 
 		@Override
 		public BitType get() {
 			return value;
-		}
-
-		@Override
-		public Sampler<BitType> copy() {
-			throw new UnsupportedOperationException();
 		}
 	}
 }

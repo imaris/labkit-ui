@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,10 +43,13 @@ import net.imglib2.util.Intervals;
 import java.io.File;
 
 /**
- * Helper class for segmenting multiple image files.
- *
+ * @deprecated Use {@link sc.fiji.labkit.ui.segmentation.SegmentationTool}
+ *             instead.
+ *             <p>
+ *             Helper class for segmenting multiple image files.
  * @author Matthias Arzt
  */
+@Deprecated
 public class BatchSegmenter {
 
 	private final ImgSaver saver = new ImgSaver();

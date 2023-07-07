@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -58,6 +58,7 @@ public class TrainableSegmentationSegmenterTest {
 	public void testClassify3DStackInSlices() {
 		Context context = SingletonContext.getInstance();
 		TrainableSegmentationSegmenter segmenter = new TrainableSegmentationSegmenter(context);
+		segmenter.setUseGpu(false);
 		// Settings to 2D
 		segmenter.setFeatureSettings(new FeatureSettings(GlobalSettings.default2d().build(),
 			SingleFeatures.identity()));

@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,6 +34,7 @@ import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.converter.Converter;
 import net.imglib2.converter.Converters;
+import net.imglib2.type.numeric.IntegerType;
 import sc.fiji.labkit.ui.Extensible;
 import sc.fiji.labkit.ui.MenuBar;
 import sc.fiji.labkit.ui.labeling.Label;
@@ -45,7 +46,6 @@ import sc.fiji.labkit.ui.models.SegmentationModel;
 import sc.fiji.labkit.ui.models.SegmentationResultsModel;
 import net.imglib2.roi.labeling.LabelingType;
 import net.imglib2.type.logic.BitType;
-import net.imglib2.type.numeric.integer.ShortType;
 import net.imglib2.view.Views;
 
 import javax.swing.*;
@@ -66,16 +66,9 @@ public class SegmentationAsLabelAction {
 	{
 		this.labelingModel = segmentationModel.imageLabelingModel();
 		this.selectedSegmenter = segmentationModel.segmenterList().selectedSegmenter();
-		extensible.addMenuItem(MenuBar.SEGMENTER_MENU,
-			"Create Label from Segmentation ...", 400,
-			ignore -> addSegmentationAsLabels(), null, "");
 		extensible.addMenuItem(SegmentationItem.SEGMENTER_MENU,
 			"Create Label from Segmentation ...", 400, this::addSegmentationAsLabel,
 			null, null);
-	}
-
-	private void addSegmentationAsLabels() {
-		addSegmentationAsLabel(selectedSegmenter.get());
 	}
 
 	private void addSegmentationAsLabel(SegmentationItem segmentationItem) {
@@ -91,10 +84,10 @@ public class SegmentationAsLabelAction {
 	}
 
 	private void addLabel(String selected, int index,
-		RandomAccessibleInterval<ShortType> segmentation)
+		RandomAccessibleInterval<? extends IntegerType<?>> segmentation)
 	{
-		Converter<ShortType, BitType> converter = (in, out) -> out.set(in
-			.get() == index);
+		Converter<IntegerType<?>, BitType> converter = (in, out) -> out.set(in
+			.getInteger() == index);
 		RandomAccessibleInterval<BitType> result = Converters.convert(segmentation,
 			converter, new BitType());
 		Holder<Labeling> labelingHolder = labelingModel.labeling();

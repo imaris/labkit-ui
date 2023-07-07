@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,7 +31,6 @@ package sc.fiji.labkit.ui.utils.sparse;
 
 import net.imglib2.Cursor;
 import net.imglib2.RandomAccess;
-import net.imglib2.Sampler;
 
 /**
  * @author Matthias Arzt
@@ -48,9 +47,9 @@ public class MappingCursor<T> implements Cursor<T> {
 	}
 
 	@Override
-	public Cursor<T> copyCursor() {
+	public MappingCursor<T> copy() {
 		return new MappingCursor<>(cursor.copyCursor(), randomAccess
-			.copyRandomAccess());
+			.copy());
 	}
 
 	@Override
@@ -130,10 +129,5 @@ public class MappingCursor<T> implements Cursor<T> {
 	@Override
 	public T get() {
 		return randomAccess.get();
-	}
-
-	@Override
-	public Sampler<T> copy() {
-		return randomAccess.copy();
 	}
 }

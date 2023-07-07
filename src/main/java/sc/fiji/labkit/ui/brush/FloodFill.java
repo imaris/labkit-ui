@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -117,6 +117,19 @@ class FloodFill {
 		RandomAccess<T> ra = image.randomAccess();
 		ra.setPosition(position);
 		return ra.get();
+	}
+
+	public static boolean isBackgroundFloodFill(RandomAccessibleInterval<LabelingType<Label>> frame,
+		Point seed, Consumer<Set<Label>> operation)
+	{
+		LabelingType<Label> seedValue = frame.randomAccess().setPositionAndGet(seed);
+		LabelingType<Label> changedSeedValue = seedValue.copy();
+		operation.accept(changedSeedValue);
+		long numberOfActiveLabelsBefore = seedValue.stream().filter(Label::isVisible).count();
+		long numberOfActiveLabelsAfter = changedSeedValue.stream().filter(Label::isVisible).count();
+		boolean isBackgroundFill = numberOfActiveLabelsBefore == 0;
+		boolean operationHasEffect = numberOfActiveLabelsAfter > 0;
+		return isBackgroundFill && operationHasEffect;
 	}
 
 	private static class CacheForPredicateLabelingType<T> implements

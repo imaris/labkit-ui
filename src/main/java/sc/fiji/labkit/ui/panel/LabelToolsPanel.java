@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,111 +29,111 @@
 
 package sc.fiji.labkit.ui.panel;
 
-import bdv.util.BdvHandle;
-import bdv.viewer.ViewerPanel;
+import org.scijava.ui.behaviour.util.RunnableAction;
 import sc.fiji.labkit.ui.brush.FloodFillController;
 import sc.fiji.labkit.ui.brush.LabelBrushController;
+import sc.fiji.labkit.ui.brush.PlanarModeController;
 import sc.fiji.labkit.ui.brush.SelectLabelController;
 import net.miginfocom.swing.MigLayout;
-import org.scijava.ui.behaviour.*;
-import org.scijava.ui.behaviour.util.TriggerBehaviourBindings;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ItemEvent;
-import java.awt.event.MouseAdapter;
-import java.util.EnumSet;
+import java.awt.event.ItemListener;
 
 /**
- * Panel with the tool buttons for brush, flood fill, etc...
+ * Panel with the tool buttons for brush, flood fill, etc... Activates and
+ * deactivates mouse behaviours.
  */
 public class LabelToolsPanel extends JPanel {
 
-	private static final String BUTTON_BEHAVIOUR_ID = "panel";
 	private static final Color OPTIONS_BORDER = new Color(220, 220, 220);
 	private static final Color OPTIONS_BACKGROUND = new Color(230, 230, 230);
 
-	private static final EnumSet<Mode> BRUSH_MODES = EnumSet.of(Mode.PAINT,
-		Mode.ERASE);
-
-	private final TriggerBehaviourBindings triggerBindings;
+	private static final String MOVE_TOOL_TIP = "<html><b>Move</b><br>" +
+		"<small>Keyboard shortcuts:<br>" +
+		"- <b>Left Click</b> on the image and drag, to rotate the image.<br>" +
+		"- <b>Right Click</b> on the image, to move around.<br>" +
+		"- <b>Ctrl + Shift + Mouse Wheel</b> to zoom in and out.<br>" +
+		"- <b>Mouse Wheel</b> only, to scroll through a 3d image.<br>" +
+		"- Press <b>Ctrl + G</b> to deactivate drawing tools and activate this mode.</small></html>";
+	private static final String DRAW_TOOL_TIP = "<html><b>Draw</b><br>" +
+		"<small>Keyboard shortcuts:<br>" +
+		"- Hold down the <b>D</b> key and <b>Left Click</b> on the image to draw.<br>" +
+		"- Hold down the <b>D</b> key and use the <b>Mouse Wheel</b> to change the brush diameter.<br>" +
+		"- Or press <b>Ctrl + D</b> to activate the drawing tool.</small></html>";
+	private static final String ERASE_TOOL_TIP = "<html><b>Erase</b><br>" +
+		"<small>Keyboard shortcuts:<br>" +
+		"- Hold down the <b>E</b> key and <b>Left Click</b> on the image to erase.<br>" +
+		"- Hold down the <b>E</b> key and use the <b>Mouse Wheel</b> to change the brush diameter.<br>" +
+		"- Or press <b>Ctrl + E</b> to activate the eraser tool.</small></html>";
+	private static final String FLOOD_FILL_TOOL_TIP = "<html><b>Flood Fill</b><br>" +
+		"<small>Keyboard shortcuts:<br>" +
+		"- Hold down the <b>F</b> key and <b>Left Click</b> on the image to flood fill.<br>" +
+		"- Or press <b>Ctrl + F</b> to activate the flood fill tool.</small></html>";
+	private static final String FLOOD_ERASE_TOOL_TIP = "<html><b>Remove Connected Component</b><br>" +
+		"<small>Keyboard shortcuts:<br>" +
+		"- Hold down the <b>R</b> key and <b>Left Click</b> on the image to remove connected component.<br>" +
+		"- Or press <b>Ctrl + R</b> to activate the remove connected component tool.</small></html>";
+	private static final String SELECT_LABEL_TOOL_TIP = "<html><b>Select Label</b><br>" +
+		"<small>Keyboard shortcuts:<br>" +
+		"- Hold down the <b>Shift</b> key and <b>Left Click</b> on the image<br>" +
+		"  to select the label under the cursor.</small></html>";
 
 	private final FloodFillController floodFillController;
 	private final LabelBrushController brushController;
 	private final SelectLabelController selectLabelController;
+	private final PlanarModeController planarModeController;
 
 	private JPanel brushOptionsPanel;
-	private final MouseAdapter brushMotionDrawer;
-	private final ViewerPanel bdvPanel;
 	private final ButtonGroup group = new ButtonGroup();
 
-	public LabelToolsPanel(BdvHandle bdvHandle,
-		LabelBrushController brushController,
-		FloodFillController floodFillController,
-		SelectLabelController selectLabelController)
+	private Mode mode = ignore -> {};
+
+	public LabelToolsPanel(LabelBrushController brushController,
+		FloodFillController floodFillController, SelectLabelController selectLabelController,
+		PlanarModeController planarModeController)
 	{
 		this.brushController = brushController;
 		this.floodFillController = floodFillController;
 		this.selectLabelController = selectLabelController;
-		triggerBindings = bdvHandle.getTriggerbindings();
-		bdvPanel = bdvHandle.getViewerPanel();
+		this.planarModeController = planarModeController;
 
 		setLayout(new MigLayout("flowy, insets 0, gap 4pt, top", "[][][][][]",
 			"[]push"));
 		setBorder(BorderFactory.createEmptyBorder(0, 0, 4, 0));
 		initActionButtons();
 		add(initOptionPanel(), "wrap, growy");
-		brushMotionDrawer = GuiUtils.toMouseListener(brushController
-			.drawBrushBehaviour());
-		setMode(Mode.MOVE);
+		add(initPlanarModeButton(), "growy");
 	}
 
 	private void setMode(Mode mode) {
-		setVisibility(mode);
-		setBindings(mode);
+		this.mode.setActive(false);
+		this.mode = mode;
+		this.mode.setActive(true);
 	}
 
-	private void setBindings(Mode mode) {
-		removeBindings();
-		if (mode == Mode.MOVE) return;
-		addBindings(getBehaviourId(mode));
-	}
-
-	private Behaviour getBehaviourId(Mode mode) {
-		switch (mode) {
-			case MOVE:
-				throw new AssertionError(); // there is no behavior for Mode.MOVE
-			case PAINT:
-				return brushController.paintBehaviour();
-			case FLOOD_FILL:
-				return floodFillController.floodFillBehaviour();
-			case ERASE:
-				return brushController.eraseBehaviour();
-			case FLOOD_ERASE:
-				return floodFillController.floodEraseBehaviour();
-			case SELECT_LABEL:
-				return selectLabelController.behaviour();
-		}
-		throw new AssertionError();
-	}
-
-	private void setVisibility(Mode mode) {
-		boolean brushVisible = BRUSH_MODES.contains(mode);
+	private void setVisibility(boolean brushVisible) {
 		if (brushOptionsPanel != null) brushOptionsPanel.setVisible(brushVisible);
-		if (brushVisible) showLabelCursor();
-		else hideLabelCursor();
 	}
 
 	private void initActionButtons() {
-		JToggleButton moveBtn = addActionButton("Move", Mode.MOVE,
-			"/images/move.png");
-		addActionButton("Draw (D)", Mode.PAINT, "/images/draw.png");
-		addActionButton("Flood Fill (F)\nThis only works properly on 2D images",
-			Mode.FLOOD_FILL, "/images/fill.png");
-		addActionButton("Erase (E)", Mode.ERASE, "/images/erase.png");
-		addActionButton("Remove Blob (R)", Mode.FLOOD_ERASE,
-			"/images/flooderase.png");
-		addActionButton("Select Label (Shift)", Mode.SELECT_LABEL,
+		JToggleButton moveBtn = addActionButton(MOVE_TOOL_TIP, ignore -> {}, false,
+			"/images/move.png", "MOVE_TOOL", "ctrl G");
+		addActionButton(DRAW_TOOL_TIP,
+			brushController::setBrushActive, true,
+			"/images/draw.png", "DRAW_TOOL", "ctrl D");
+		addActionButton(FLOOD_FILL_TOOL_TIP,
+			floodFillController::setFloodFillActive, false,
+			"/images/fill.png", "FILL_TOOL", "ctrl F");
+		addActionButton(ERASE_TOOL_TIP,
+			brushController::setEraserActive, true,
+			"/images/erase.png", "ERASE_TOOL", "ctrl E");
+		addActionButton(FLOOD_ERASE_TOOL_TIP,
+			floodFillController::setRemoveBlobActive, false,
+			"/images/flooderase.png", "FLOOD_ERASE_TOOL", "ctrl R");
+		addActionButton(SELECT_LABEL_TOOL_TIP,
+			selectLabelController::setActive, false,
 			"/images/pipette.png");
 		moveBtn.doClick();
 	}
@@ -148,21 +148,57 @@ public class LabelToolsPanel extends JPanel {
 		return optionPane;
 	}
 
-	private JToggleButton addActionButton(String toolTipText, Mode mode,
+	private JToggleButton initPlanarModeButton() {
+		JToggleButton button = new JToggleButton();
+		ImageIcon rotateIcon = getIcon("/images/rotate.png");
+		ImageIcon planarIcon = getIcon("/images/planes.png");
+		button.setIcon(rotateIcon);
+		button.setFocusable(false);
+		String ENABLE_TEXT = "Click to: Enable slice by slice editing of 3d images.";
+		String DISABLE_TEXT = "Click to: Disable slice by slice editing and freely rotate 3d images.";
+		button.addActionListener(ignore -> {
+			boolean selected = button.isSelected();
+			button.setIcon(selected ? planarIcon : rotateIcon);
+			button.setToolTipText(selected ? DISABLE_TEXT : ENABLE_TEXT);
+			planarModeController.setActive(selected);
+			floodFillController.setPlanarMode(selected);
+			brushController.setPlanarMode(selected);
+		});
+		button.setToolTipText(ENABLE_TEXT);
+		return button;
+	}
+
+	private JToggleButton addActionButton(String toolTipText, Mode mode, boolean visibility,
+		String iconPath, String activationKey, String key)
+	{
+		JToggleButton button = addActionButton(toolTipText, mode, visibility, iconPath);
+		button.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(key),
+			activationKey);
+		button.getActionMap().put(activationKey, new RunnableAction(activationKey, button::doClick));
+		return button;
+	}
+
+	private JToggleButton addActionButton(String toolTipText, Mode mode, boolean visibility,
 		String iconPath)
 	{
 		JToggleButton button = new JToggleButton();
-		button.setIcon(new ImageIcon(this.getClass().getResource(iconPath)));
+		button.setIcon(getIcon(iconPath));
 		button.setToolTipText(toolTipText);
 		button.setMargin(new Insets(0, 0, 0, 0));
+		button.setFocusable(false);
 		button.addItemListener(ev -> {
 			if (ev.getStateChange() == ItemEvent.SELECTED) {
 				setMode(mode);
+				setVisibility(visibility);
 			}
 		});
 		group.add(button);
 		add(button, "wrap, top");
 		return button;
+	}
+
+	private ImageIcon getIcon(String iconPath) {
+		return new ImageIcon(this.getClass().getResource(iconPath));
 	}
 
 	private JPanel initBrushOptionPanel() {
@@ -189,12 +225,17 @@ public class LabelToolsPanel extends JPanel {
 
 	private JSlider initBrushSizeSlider() {
 		JSlider brushSize = new JSlider(1, 50, (int) brushController
-			.getBrushRadius());
+			.getBrushDiameter());
+		brushSize.setFocusable(false);
 		brushSize.setPaintTrack(true);
 		brushSize.addChangeListener(e -> {
-			brushController.setBrushRadius(brushSize.getValue());
+			brushController.setBrushDiameter(brushSize.getValue());
 		});
 		brushSize.setOpaque(false);
+		brushController.brushDiameterListeners().addListener(() -> {
+			double diameter = brushController.getBrushDiameter();
+			brushSize.setValue((int) diameter);
+		});
 		return brushSize;
 	}
 
@@ -206,34 +247,8 @@ public class LabelToolsPanel extends JPanel {
 		return valLabel;
 	}
 
-	private void showLabelCursor() {
-		bdvPanel.getDisplay().addMouseListener(brushMotionDrawer);
-		bdvPanel.getDisplay().addMouseMotionListener(brushMotionDrawer);
-	}
+	private interface Mode {
 
-	private void hideLabelCursor() {
-		bdvPanel.getDisplay().removeMouseListener(brushMotionDrawer);
-		bdvPanel.getDisplay().removeMouseMotionListener(brushMotionDrawer);
-	}
-
-	private void addBindings(Behaviour behaviour) {
-		final BehaviourMap behaviourMap = new BehaviourMap();
-		behaviourMap.put("label tool button1", behaviour);
-		behaviourMap.put("drag rotate", new Behaviour() {});
-		behaviourMap.put("2d drag rotate", new Behaviour() {});
-		final InputTriggerMap inputTriggerMap = new InputTriggerMap();
-		inputTriggerMap.put(InputTrigger.getFromString("button1"),
-			"label tool button1");
-		triggerBindings.addInputTriggerMap(BUTTON_BEHAVIOUR_ID, inputTriggerMap);
-		triggerBindings.addBehaviourMap(BUTTON_BEHAVIOUR_ID, behaviourMap);
-	}
-
-	private void removeBindings() {
-		triggerBindings.removeInputTriggerMap(BUTTON_BEHAVIOUR_ID);
-		triggerBindings.removeBehaviourMap(BUTTON_BEHAVIOUR_ID);
-	}
-
-	private enum Mode {
-			MOVE, PAINT, FLOOD_FILL, ERASE, SELECT_LABEL, FLOOD_ERASE
+		void setActive(boolean active);
 	}
 }

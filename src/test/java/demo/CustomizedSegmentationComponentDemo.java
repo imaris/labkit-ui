@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,6 +35,7 @@ import net.imagej.ImgPlus;
 import net.imagej.patcher.LegacyInjector;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.VirtualStackAdapter;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
 import sc.fiji.labkit.ui.BasicLabelingComponent;
 import sc.fiji.labkit.ui.DefaultExtensible;
 import sc.fiji.labkit.ui.MenuBar;
@@ -157,8 +158,8 @@ public class CustomizedSegmentationComponentDemo extends JPanel implements AutoC
 			return;
 		}
 		ImageLabelingModel imageLabeling = segmentationModel.imageLabelingModel();
-		RandomAccessibleInterval<ShortType> segmentation = selectedSegmenter.results(imageLabeling)
-			.segmentation();
+		RandomAccessibleInterval<UnsignedByteType> segmentation =
+			selectedSegmenter.results(imageLabeling).segmentation();
 		ParallelUtils.runInOtherThread(() -> {
 			ParallelUtils.populateCachedImg(segmentation, new SwingProgressWriter(null,
 				"Calculate Entire Segmentation"));

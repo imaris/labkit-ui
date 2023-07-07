@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,13 +29,15 @@
 
 package sc.fiji.labkit.ui.utils.sparse;
 
+import net.imglib2.FinalInterval;
+import net.imglib2.Point;
+import net.imglib2.algorithm.fill.FloodFill;
+import net.imglib2.algorithm.neighborhood.DiamondShape;
 import net.imglib2.img.sparse.NtreeImgFactory;
 import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.IntType;
 import net.imglib2.util.Intervals;
-import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
@@ -45,40 +47,39 @@ import org.openjdk.jmh.runner.options.TimeValue;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.view.Views;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * @author Matthias Arzt
  */
 @State(Scope.Benchmark)
+@BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@Warmup(iterations = 5, time = 1)
+@Measurement(iterations = 5, time = 1)
+@Fork(1)
 public class SparseRandomAccessIntTypeBenchmark {
 
-	// RandomAccessibleInterval<BitType> image = new
-	// DiskCachedCellImgFactory<BitType>().create(new long[]{100,100, 100}, new
-	// BitType());
-	// RandomAccessibleInterval<ByteType> image = ArrayImgs.bytes(100,100,100);
-	// RandomAccessibleInterval<IntType> image = ArrayImgs.ints(100,100,100);
-	// RandomAccessibleInterval<BitType> image = ArrayImgs.bits(100,100,100);
 	RandomAccessibleInterval<IntType> ntree = new NtreeImgFactory<>(new IntType())
-		.create(new long[] { 100, 100, 100 });
-	RandomAccessibleInterval<IntType> sparse = new SparseRandomAccessIntType(
+		.create(100, 100, 100);
+	SparseRandomAccessIntType sparse = new SparseRandomAccessIntType(
 		Intervals.createMinSize(0, 0, 0, 100, 100, 100));
 
 	@Benchmark
 	public void fillNtree() {
-		for (IntegerType pixel : Views.iterable(ntree))
+		for (IntegerType<?> pixel : Views.iterable(ntree))
 			pixel.setOne();
 	}
 
 	@Benchmark
 	public void fillSparse() {
-		for (IntegerType pixel : Views.iterable(sparse))
+		for (IntegerType<?> pixel : Views.iterable(sparse))
 			pixel.setOne();
 	}
 
 	public static void main(final String... args) throws RunnerException {
-		final Options opt = new OptionsBuilder().include(
-			SparseRandomAccessIntTypeBenchmark.class.getSimpleName()).forks(1)
-			.warmupIterations(4).measurementIterations(8).warmupTime(TimeValue
-				.milliseconds(1000)).measurementTime(TimeValue.milliseconds(1000))
+		final Options opt = new OptionsBuilder()
+			.include(SparseRandomAccessIntTypeBenchmark.class.getSimpleName())
 			.build();
 		new Runner(opt).run();
 	}

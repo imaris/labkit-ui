@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -107,14 +107,23 @@ public class LabelPanel {
 			buttonsPanel.setBackground(UIManager.getColor("List.background"));
 			buttonsPanel.setLayout(new MigLayout("insets 4pt, gap 4pt", "[grow]",
 				""));
-			buttonsPanel.add(GuiUtils.createActionIconButton("Add label",
-				new RunnableAction("Add label", this::addLabel), "add.png"), "");
+			buttonsPanel.add(initializeAddLabelButton(), "");
 			buttonsPanel.add(GuiUtils.createActionIconButton("Remove all",
 				new RunnableAction("Remove all", this::removeAllLabels), "remove.png"),
 				"gapbefore push");
 			panel.add(buttonsPanel, "grow, span");
 		}
 		return panel;
+	}
+
+	private JButton initializeAddLabelButton() {
+		RunnableAction addLabelAction = new RunnableAction("Add label", this::addLabel);
+		JButton button = GuiUtils.createActionIconButton("Add label", addLabelAction, "add.png");
+		button.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+			.put(KeyStroke.getKeyStroke("ctrl A"), "create new label");
+		button.getActionMap().put("create new label", addLabelAction);
+		button.setToolTipText("<html><small>Keyboard shortcut:</small></html>");
+		return button;
 	}
 
 	private void changeSelectedLabel() {
@@ -184,6 +193,7 @@ public class LabelPanel {
 
 		private JButton initPopupMenuButton(JPopupMenu menu) {
 			JButton button = new BasicArrowButton(BasicArrowButton.SOUTH);
+			button.setFocusable(false);
 			button.addActionListener(actionEvent -> {
 				menu.show(button, 0, button.getHeight());
 			});
@@ -201,6 +211,7 @@ public class LabelPanel {
 
 		private JButton initColorButton() {
 			JButton colorButton = new JButton();
+			colorButton.setFocusable(false);
 			colorButton.setBorder(new EmptyBorder(1, 1, 1, 1));
 			colorButton.setIcon(GuiUtils.createIcon(new Color(label.color().get())));
 			colorButton.addActionListener(l -> changeColor(label));

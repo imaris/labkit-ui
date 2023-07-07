@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,17 +29,18 @@
 
 package sc.fiji.labkit.ui.brush;
 
+import bdv.util.BdvHandle;
 import bdv.viewer.ViewerPanel;
 import net.imglib2.Point;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.RealLocalizable;
 import net.imglib2.RealPoint;
+import org.scijava.ui.behaviour.*;
 import sc.fiji.labkit.ui.ActionsAndBehaviours;
 import sc.fiji.labkit.ui.labeling.Label;
 import sc.fiji.labkit.ui.models.LabelingModel;
 import net.imglib2.roi.labeling.LabelingType;
 import net.imglib2.view.Views;
-import org.scijava.ui.behaviour.ClickBehaviour;
 import org.scijava.ui.behaviour.util.RunnableAction;
 
 import javax.swing.*;
@@ -54,13 +55,15 @@ import java.util.stream.Collectors;
  */
 public class FloodFillController {
 
-	private static final double[] PIXEL_CENTER_OFFSET = { 0.5, 0.5, 0.5 };
-
 	private final ViewerPanel viewer;
 
 	private final LabelingModel model;
 
+	private final BdvHandle bdv;
+
 	private boolean overlapping = false;
+
+	private boolean planarMode = false;
 
 	private Collection<Label> visibleLabels() {
 		return model.labeling().get().getLabels().stream().filter(Label::isVisible)
@@ -91,10 +94,11 @@ public class FloodFillController {
 		}
 	});
 
-	public FloodFillController(final ViewerPanel viewer,
+	public FloodFillController(final BdvHandle bdv,
 		final LabelingModel model, final ActionsAndBehaviours behaviors)
 	{
-		this.viewer = viewer;
+		this.bdv = bdv;
+		this.viewer = bdv.getViewerPanel();
 		this.model = model;
 
 		RunnableAction nop = new RunnableAction("nop", () -> {});
@@ -109,14 +113,6 @@ public class FloodFillController {
 		return model.selectedLabel().get();
 	}
 
-	public ClickBehaviour floodEraseBehaviour() {
-		return floodEraseBehaviour;
-	}
-
-	public ClickBehaviour floodFillBehaviour() {
-		return floodFillBehaviour;
-	}
-
 	private RealPoint displayToImageCoordinates(final int x, final int y) {
 		final RealPoint labelLocation = new RealPoint(3);
 		labelLocation.setPosition(x, 0);
@@ -124,12 +120,23 @@ public class FloodFillController {
 		labelLocation.setPosition(0, 2);
 		viewer.displayToGlobalCoordinates(labelLocation);
 		model.labelTransformation().applyInverse(labelLocation, labelLocation);
-		labelLocation.move(PIXEL_CENTER_OFFSET);
 		return labelLocation;
 	}
 
 	public void setOverlapping(boolean override) {
 		this.overlapping = override;
+	}
+
+	public void setFloodFillActive(boolean active) {
+		BdvMouseBehaviourUtils.setMouseBehaviourActive(bdv, floodFillBehaviour, active);
+	}
+
+	public void setRemoveBlobActive(boolean active) {
+		BdvMouseBehaviourUtils.setMouseBehaviourActive(bdv, floodEraseBehaviour, active);
+	}
+
+	public void setPlanarMode(boolean planarMode) {
+		this.planarMode = planarMode;
 	}
 
 	private class FloodFillClick implements ClickBehaviour {
@@ -140,13 +147,31 @@ public class FloodFillController {
 			this.operationFactory = operationFactory;
 		}
 
-		protected void floodFill(final RealLocalizable coords) {
+		protected void floodFill(final RealLocalizable imageCoordinates) {
 			synchronized (viewer) {
-				RandomAccessibleInterval<LabelingType<Label>> labeling1 = labeling();
-				Point seed = roundAndReduceDimension(coords, labeling1.numDimensions());
-				FloodFill.doFloodFillOnActiveLabels(labeling1, seed, operationFactory
-					.get());
+				RandomAccessibleInterval<LabelingType<Label>> frame = labeling();
+				if (frame.numDimensions() == 3 && planarMode) {
+					long z = Math.round(imageCoordinates.getDoublePosition(2));
+					frame = Views.hyperSlice(frame, 2, z);
+				}
+				Point seed = roundAndReduceDimension(imageCoordinates, frame.numDimensions());
+				Consumer<Set<Label>> operation = operationFactory.get();
+				if (askUser(frame, seed, operation))
+					FloodFill.doFloodFillOnActiveLabels(frame, seed, operation);
 			}
+		}
+
+		private boolean askUser(RandomAccessibleInterval<LabelingType<Label>> frame, Point seed,
+			Consumer<Set<Label>> operation)
+		{
+			if (seed.numDimensions() == 3 && FloodFill.isBackgroundFloodFill(frame, seed, operation)) {
+				String message = "Are you sure to flood fill the background of this 3d image?" +
+					"\n(This may take a while to compute.)";
+				int result = JOptionPane.showConfirmDialog(viewer, message, "Flood Fill 3D Image",
+					JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+				return result == JOptionPane.OK_OPTION;
+			}
+			return true;
 		}
 
 		private Point roundAndReduceDimension(final RealLocalizable realLocalizable,
@@ -154,7 +179,7 @@ public class FloodFillController {
 		{
 			Point point = new Point(numDimesions);
 			for (int i = 0; i < point.numDimensions(); i++)
-				point.setPosition((long) realLocalizable.getDoublePosition(i), i);
+				point.setPosition(Math.round(realLocalizable.getDoublePosition(i)), i);
 			return point;
 		}
 

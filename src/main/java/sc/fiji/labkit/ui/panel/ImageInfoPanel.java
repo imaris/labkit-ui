@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -69,9 +69,11 @@ public class ImageInfoPanel {
 		panel.add(label, "grow, span, wrap");
 		if (labelingComponent != null) {
 			final JButton button = new JButton("auto contrast");
+			button.setFocusable(false);
 			button.addActionListener(ignore -> labelingComponent.autoContrast());
 			panel.add(button, "grow");
 			final JButton settingsButton = new JButton("settings");
+			settingsButton.setFocusable(false);
 			settingsButton.addActionListener(ignore -> labelingComponent.toggleContrastSettings());
 			panel.add(settingsButton, "grow, wrap");
 		}

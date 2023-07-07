@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,7 +29,6 @@
 
 package sc.fiji.labkit.ui.plugin;
 
-import bdv.img.imaris.Imaris;
 import io.scif.services.DatasetIOService;
 import net.imagej.Dataset;
 import sc.fiji.labkit.ui.LabkitFrame;
@@ -46,12 +45,10 @@ import org.scijava.command.CommandService;
 import org.scijava.io.location.FileLocation;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
-import org.scijava.util.FileUtils;
 
 import javax.swing.JOptionPane;
 import java.io.File;
 import java.io.IOException;
-import java.util.concurrent.CancellationException;
 
 /**
  * @author Matthias Arzt
@@ -96,7 +93,9 @@ public class LabkitImportPlugin implements Command {
 			return SpimDataInputImage.openWithGuiForLevelSelection(filename);
 		try {
 			Dataset dataset = context.service(DatasetIOService.class).open(new FileLocation(file));
-			return new DatasetInputImage(dataset);
+			DatasetInputImage datasetInputImage = new DatasetInputImage(dataset);
+			datasetInputImage.setDefaultLabelingFilename(filename + ".labeling");
+			return datasetInputImage;
 		}
 		catch (IOException e) {
 			throw new UnsupportedOperationException(

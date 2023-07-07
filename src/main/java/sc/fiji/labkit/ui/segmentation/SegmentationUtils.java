@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,20 +29,23 @@
 
 package sc.fiji.labkit.ui.segmentation;
 
+import bdv.export.ProgressWriterConsole;
 import net.imagej.ImgPlus;
 import net.imagej.axis.Axes;
 import net.imglib2.FinalInterval;
 import net.imglib2.Interval;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.Img;
+import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.img.cell.CellGrid;
+import net.imglib2.type.numeric.IntegerType;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
+import org.apache.commons.lang3.ArrayUtils;
 import sc.fiji.labkit.ui.inputimage.ImgPlusViewsOld;
 import sc.fiji.labkit.ui.models.CachedImageFactory;
 import sc.fiji.labkit.ui.models.DefaultCachedImageFactory;
-import sc.fiji.labkit.ui.utils.DimensionUtils;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.NumericType;
-import net.imglib2.type.numeric.integer.ShortType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.util.Intervals;
 import net.imglib2.view.Views;
@@ -71,8 +74,16 @@ public class SegmentationUtils {
 			gridWithChannel, new FloatType());
 	}
 
-	public static Img<ShortType> createCachedSegmentation(Segmenter segmenter, ImgPlus<?> image,
+	public static Img<UnsignedByteType> createCachedSegmentation(Segmenter segmenter,
+		ImgPlus<?> image,
 		CachedImageFactory cachedImageFactory)
+	{
+		return createCachedSegmentation(segmenter, image, cachedImageFactory, new UnsignedByteType());
+	}
+
+	public static <T extends IntegerType<T> & NativeType<T>> Img<T> createCachedSegmentation(
+		Segmenter segmenter, ImgPlus<?> image, CachedImageFactory cachedImageFactory,
+		T type)
 	{
 		if (cachedImageFactory == null)
 			cachedImageFactory = DefaultCachedImageFactory.getInstance();
@@ -81,13 +92,13 @@ public class SegmentationUtils {
 		CellGrid grid = new CellGrid(Intervals.dimensionsAsLongArray(interval), cellSize);
 		return cachedImageFactory.setupCachedImage(segmenter,
 			target -> segmenter.segment(image, ensureCellSize(segmenter, cellSize, target)),
-			grid, new ShortType());
+			grid, type);
 	}
 
 	private static CellGrid addDimensionToGrid(int size, CellGrid grid) {
-		return new CellGrid(DimensionUtils.extend(grid
-			.getImgDimensions(), size), DimensionUtils.extend(getCellDimensions(
-				grid), size));
+		long[] dimensions = ArrayUtils.add(grid.getImgDimensions(), size);
+		int[] cellDimensions = ArrayUtils.add(getCellDimensions(grid), size);
+		return new CellGrid(dimensions, cellDimensions);
 	}
 
 	/**

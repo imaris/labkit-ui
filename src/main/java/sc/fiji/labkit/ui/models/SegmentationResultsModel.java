@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,15 +33,13 @@ import net.imagej.ImgPlus;
 import net.imglib2.FinalInterval;
 import net.imglib2.Interval;
 import net.imglib2.RandomAccessibleInterval;
-import net.imglib2.cache.img.CellLoader;
-import net.imglib2.img.cell.CellGrid;
-import sc.fiji.labkit.ui.inputimage.ImgPlusViewsOld;
+import sc.fiji.labkit.ui.labeling.Label;
 import sc.fiji.labkit.ui.labeling.Labeling;
 import sc.fiji.labkit.ui.segmentation.SegmentationUtils;
 import sc.fiji.labkit.ui.segmentation.Segmenter;
 import sc.fiji.labkit.ui.utils.Notifier;
 import net.imglib2.type.numeric.ARGBType;
-import net.imglib2.type.numeric.integer.ShortType;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.util.ConstantUtils;
 import net.imglib2.util.Intervals;
@@ -62,7 +60,7 @@ public class SegmentationResultsModel {
 	private final ImageLabelingModel model;
 	private final Segmenter segmenter;
 	private boolean hasResults = false;
-	private RandomAccessibleInterval<ShortType> segmentation;
+	private RandomAccessibleInterval<UnsignedByteType> segmentation;
 	private RandomAccessibleInterval<FloatType> prediction;
 	private List<String> labels = Collections.emptyList();
 	private List<ARGBType> colors = Collections.emptyList();
@@ -75,7 +73,7 @@ public class SegmentationResultsModel {
 		this.model = model;
 		this.extensionPoints = extensionPoints;
 		this.segmenter = segmenter;
-		segmentation = dummy(new ShortType());
+		segmentation = dummy(new UnsignedByteType());
 		prediction = dummy(new FloatType());
 		model.imageForSegmentation().notifier().addListener(this::update);
 		update();
@@ -103,18 +101,22 @@ public class SegmentationResultsModel {
 			return labeling.getLabel(name).color();
 		}
 		catch (NoSuchElementException e) {
-			return labeling.addLabel(name).color();
+			// NB: Catching this exception is an ugly bugfix, a cleaner solution
+			// would be better.
+			Label label = labeling.addLabel(name);
+			model.labeling().notifier().notifyListeners();
+			return label.color();
 		}
 	}
 
 	public void clear() {
-		segmentation = dummy(new ShortType());
+		segmentation = dummy(new UnsignedByteType());
 		prediction = dummy(new FloatType());
 		hasResults = false;
 		listeners.notifyListeners();
 	}
 
-	public RandomAccessibleInterval<ShortType> segmentation() {
+	public RandomAccessibleInterval<UnsignedByteType> segmentation() {
 		return segmentation;
 	}
 

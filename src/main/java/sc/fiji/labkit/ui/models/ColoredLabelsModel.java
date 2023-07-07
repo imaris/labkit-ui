@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,6 +32,7 @@ package sc.fiji.labkit.ui.models;
 import net.imglib2.Cursor;
 import net.imglib2.FinalInterval;
 import net.imglib2.Interval;
+import net.imglib2.util.Intervals;
 import sc.fiji.labkit.ui.labeling.Label;
 import sc.fiji.labkit.ui.labeling.Labeling;
 import sc.fiji.labkit.ui.panel.LabelPanel;
@@ -124,10 +125,12 @@ public class ColoredLabelsModel {
 	}
 
 	public void localizeLabel(final Label label) {
-		Interval labelBox = getBoundingBox(model.labeling().get().iterableRegions()
+		Interval interval = getBoundingBox(model.labeling().get().iterableRegions()
 			.get(label));
-		if (labelBox == null) return;
-		model.transformationModel().transformToShowInterval(labelBox, model
+		if (interval == null) return;
+		interval = Intervals.expand(interval, Math.max(interval.dimension(0), 20), 0);
+		interval = Intervals.expand(interval, Math.max(interval.dimension(1), 20), 1);
+		model.transformationModel().transformToShowInterval(interval, model
 			.labelTransformation());
 	}
 

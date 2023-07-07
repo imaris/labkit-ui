@@ -39,7 +39,7 @@ import net.imagej.axis.CalibratedAxis;
 import net.imglib2.Interval;
 import net.imglib2.img.Img;
 import net.imglib2.img.array.ArrayImgs;
-import net.imglib2.type.numeric.integer.ShortType;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.util.Intervals;
 import org.scijava.Cancelable;
 import org.scijava.Context;
@@ -85,7 +85,7 @@ public class SegmentImageWithLabkitPlugin implements Command, Cancelable {
 		segmenter.setUseGpu(use_gpu);
 		segmenter.openModel(segmenter_file.getAbsolutePath());
 		ImgPlus<?> imgPlus = new DatasetInputImage(input).imageForSegmentation();
-		Img<ShortType> outputImg = useCache(imgPlus) ? calculateOnCachedImg(segmenter, imgPlus)
+		Img<UnsignedByteType> outputImg = useCache(imgPlus) ? calculateOnCachedImg(segmenter, imgPlus)
 			: calculateOnArrayImg(segmenter, imgPlus);
 		output = datasetService.create(outputImg);
 
@@ -102,20 +102,20 @@ public class SegmentImageWithLabkitPlugin implements Command, Cancelable {
 		return Intervals.numElements(imgPlus) > 100_000_000;
 	}
 
-	private Img<ShortType> calculateOnCachedImg(TrainableSegmentationSegmenter segmenter,
+	private Img<UnsignedByteType> calculateOnCachedImg(TrainableSegmentationSegmenter segmenter,
 		ImgPlus<?> imgPlus)
 	{
-		Img<ShortType> outputImg = SegmentationUtils.createCachedSegmentation(segmenter, imgPlus, null);
+		Img<UnsignedByteType> outputImg = SegmentationUtils.createCachedSegmentation(segmenter, imgPlus, null);
 		ParallelUtils.populateCachedImg(outputImg, new ProgressWriterConsole());
 		return outputImg;
 	}
 
-	private Img<ShortType> calculateOnArrayImg(TrainableSegmentationSegmenter segmenter,
+	private Img<UnsignedByteType> calculateOnArrayImg(TrainableSegmentationSegmenter segmenter,
 		ImgPlus<?> imgPlus)
 	{
 		Interval outputInterval = SegmentationUtils.intervalNoChannels(imgPlus);
 		int[] cellSize = segmenter.suggestCellSize(imgPlus);
-		Img<ShortType> outputImg = ArrayImgs.shorts(Intervals.dimensionsAsLongArray(outputInterval));
+		Img<UnsignedByteType> outputImg = ArrayImgs.unsignedBytes(Intervals.dimensionsAsLongArray(outputInterval));
 		ParallelUtils.applyOperationOnCells(outputImg, cellSize,
 			outputCell -> segmenter.segment(imgPlus, outputCell), new ProgressWriterConsole());
 		return outputImg;

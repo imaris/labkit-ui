@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,7 +32,6 @@ package sc.fiji.labkit.ui.brush.neighborhood;
 import net.imglib2.AbstractEuclideanSpace;
 import net.imglib2.Cursor;
 import net.imglib2.RandomAccess;
-import net.imglib2.Sampler;
 
 public final class MappingCursor<T> extends AbstractEuclideanSpace implements
 	Cursor<T>
@@ -55,8 +54,8 @@ public final class MappingCursor<T> extends AbstractEuclideanSpace implements
 	}
 
 	public MappingCursor(MappingCursor<T> mappingCursor) {
-		this(mappingCursor.offset, mappingCursor.cursor.copyCursor(),
-			mappingCursor.source.copyRandomAccess());
+		this(mappingCursor.offset, mappingCursor.cursor.copy(),
+			mappingCursor.source.copy());
 	}
 
 	@Override
@@ -147,12 +146,7 @@ public final class MappingCursor<T> extends AbstractEuclideanSpace implements
 	}
 
 	@Override
-	public Sampler<T> copy() {
-		return source.copy();
-	}
-
-	@Override
-	public MappingCursor<T> copyCursor() {
+	public MappingCursor<T> copy() {
 		return new MappingCursor<>(this);
 	}
 }

@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,7 +29,8 @@
 
 package sc.fiji.labkit.ui;
 
-import net.imagej.ImageJ;
+import org.scijava.Context;
+import org.scijava.ui.UIService;
 import sc.fiji.labkit.ui.actions.AbstractFileIoAction;
 
 import javax.swing.*;
@@ -73,8 +74,8 @@ public class Main {
 	}
 
 	public static void start(String filename) {
-		ImageJ imageJ = new ImageJ();
-		imageJ.ui().showUI();
-		LabkitFrame.showForFile(imageJ.context(), filename);
+		Context context = new Context();
+		context.service(UIService.class).showUI();
+		LabkitFrame.showForFile(context, filename);
 	}
 }

@@ -2,7 +2,7 @@
  * #%L
  * The Labkit image segmentation tool for Fiji.
  * %%
- * Copyright (C) 2017 - 2021 Matthias Arzt
+ * Copyright (C) 2017 - 2023 Matthias Arzt
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,7 +38,6 @@ import net.imglib2.Localizable;
 import net.imglib2.Point;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
-import net.imglib2.Sampler;
 import net.imglib2.img.basictypeaccess.IntAccess;
 import net.imglib2.roi.IterableRegion;
 import net.imglib2.type.BooleanType;
@@ -51,6 +50,7 @@ public class SparseRandomAccessIntType extends AbstractWrappedInterval<Interval>
 	implements RandomAccessibleInterval<IntType>
 {
 
+	private final ReadRetryWriteLock lock = new ReadRetryWriteLock();
 	private final IntervalIndexer2 indexer;
 	private final TLongIntHashMap values;
 	private final int noEntryValue;
@@ -87,14 +87,41 @@ public class SparseRandomAccessIntType extends AbstractWrappedInterval<Interval>
 
 	// -- Helper methods --
 
+	public void clear() {
+		values.clear();
+	}
+
 	private int get(MyRandomAccess position) {
-		return values.get(indexer.positionToIndex(position));
+		long index = indexer.positionToIndex(position);
+		while (true) {
+			try {
+				long readId = lock.startRead();
+				int value = values.get(index);
+				if (lock.isReadValid(readId))
+					return value;
+			}
+			catch (ArrayIndexOutOfBoundsException ignore) {
+				// NB: TLongInHashMap.get(long) sometimes throws an
+				// ArrayIndexOutOfBoundsException, if it is rehashed.
+			}
+		}
 	}
 
 	private void set(MyRandomAccess position, int value) {
-		Long index = indexer.positionToIndex(position);
-		if (value == noEntryValue) values.remove(index);
-		else values.put(index, value);
+		long index = indexer.positionToIndex(position);
+
+		synchronized (lock) {
+			lock.writeLock();
+			try {
+				if (value == noEntryValue)
+					values.remove(index);
+				else
+					values.put(index, value);
+			}
+			finally {
+				lock.writeUnlock();
+			}
+		}
 	}
 
 	// -- Helper classes --
@@ -123,18 +150,13 @@ public class SparseRandomAccessIntType extends AbstractWrappedInterval<Interval>
 		}
 
 		@Override
-		public RandomAccess<IntType> copyRandomAccess() {
+		public RandomAccess<IntType> copy() {
 			return new MyRandomAccess(this);
 		}
 
 		@Override
 		public IntType get() {
 			return value;
-		}
-
-		@Override
-		public Sampler<IntType> copy() {
-			throw new UnsupportedOperationException();
 		}
 	}
 }
