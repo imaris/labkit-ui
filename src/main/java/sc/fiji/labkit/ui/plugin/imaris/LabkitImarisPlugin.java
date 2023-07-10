@@ -12,7 +12,6 @@ import java.lang.ref.WeakReference;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
@@ -27,10 +26,7 @@ import sc.fiji.labkit.ui.models.DefaultSegmentationModel;
 import sc.fiji.labkit.ui.models.ImageLabelingModel;
 import sc.fiji.labkit.ui.models.SegmentationItem;
 import sc.fiji.labkit.ui.models.SegmenterListModel;
-import sc.fiji.labkit.ui.segmentation.ForwardingSegmenter;
-import sc.fiji.labkit.ui.segmentation.Segmenter;
 import sc.fiji.labkit.ui.segmentation.weka.PixelClassificationPlugin;
-import sc.fiji.labkit.ui.segmentation.weka.TrainableSegmentationSegmenter;
 import sc.fiji.labkit.ui.utils.ParallelUtils;
 
 /**
@@ -61,13 +57,14 @@ public class LabkitImarisPlugin implements Command
 		ext.registerImageFactories();
 
 		final String title = input.imageForSegmentation().getName();
-		show( model, ext, title, null, false, false, notifyOnWindowClosing( dataset ), imaris );
+		show( model, ext, title, null, null, false, false, notifyOnWindowClosing( dataset ), imaris );
 	}
 
 	/**
 	 * @param context
 	 * @param imaris
 	 * @param classifier
+	 * @param featureSettingsFilename
 	 * @param headless
 	 * 		whether to run headless
 	 * 		If {@code headless == true}, load the given {@code classifier}, run
@@ -89,6 +86,7 @@ public class LabkitImarisPlugin implements Command
 			final Context context,
 			final ImarisApplication imaris,
 			final String classifier,
+			final String featureSettingsFilename,
 			final boolean headless,
 			final String storeClassifiersPath,
 			final boolean closeLabkitAfterCalculatingResult,
@@ -104,10 +102,10 @@ public class LabkitImarisPlugin implements Command
 		ext.registerImageFactories();
 
 		if (headless) {
-			segmentHeadless( model, ext, classifier, useGpu );
+			segmentHeadless( model, ext, classifier, featureSettingsFilename, useGpu );
 		} else {
 			final String title = input.imageForSegmentation().getName();
-			show( model, ext, title, classifier, useGpu, closeLabkitAfterCalculatingResult, notifyOnWindowClosing( dataset ), imaris );
+			show( model, ext, title, classifier, featureSettingsFilename, useGpu, closeLabkitAfterCalculatingResult, notifyOnWindowClosing( dataset ), imaris );
 		}
 	}
 
@@ -127,11 +125,15 @@ public class LabkitImarisPlugin implements Command
 		};
 	}
 
-	private static void segmentHeadless( final DefaultSegmentationModel segmentationModel, final ImarisExtensionPoints ext, final String classifier, final boolean useGpu )
+	private static void segmentHeadless( final DefaultSegmentationModel segmentationModel, final ImarisExtensionPoints ext, final String classifier, final String featureSettingsFilename, final boolean useGpu )
 	{
 		final SegmenterListModel segmenterList = segmentationModel.segmenterList();
-		final SegmentationItem item = segmenterList.addSegmenter( PixelClassificationPlugin.create( useGpu ) );
-		item.openModel( classifier );
+		final SegmentationItem item = segmenterList.addSegmenter( PixelClassificationPlugin.create( useGpu, featureSettingsFilename ) );
+		if ( classifier != null ) {
+			item.openModel( classifier );
+		} else {
+			item.train( segmenterList.trainingData().get() );
+		}
 
 		final ImageLabelingModel imageLabeling = segmentationModel.imageLabelingModel();
 		final RandomAccessibleInterval< FloatType > prediction = item.results( imageLabeling ).prediction();
@@ -154,6 +156,7 @@ public class LabkitImarisPlugin implements Command
 			final ImarisExtensionPoints ext,
 			final String title,
 			final String classifier,
+			final String featureSettingsFilename,
 			final boolean useGpu,
 			final boolean closeLabkitAfterCalculatingResult,
 			final Runnable onClose,
@@ -164,8 +167,13 @@ public class LabkitImarisPlugin implements Command
 		frame.setDefaultCloseOperation( JFrame.DISPOSE_ON_CLOSE );
 
 		ImarisSegmentationComponent component = new ImarisSegmentationComponent( frame, model, ext, closeLabkitAfterCalculatingResult );
-		if ( classifier != null )
+		if ( classifier != null ) {
 			component.loadClassifier( classifier, useGpu );
+		}
+		else {
+			final SegmenterListModel segmenterList = model.segmenterList();
+			segmenterList.addSegmenter( PixelClassificationPlugin.create( useGpu, featureSettingsFilename ) );
+		}
 
 		frame.setJMenuBar( component.getMenuBar() );
 		frame.add( component );
@@ -205,6 +213,7 @@ public class LabkitImarisPlugin implements Command
 		int applicationId = -1;
 		String endPoints = "default -p 4029";
 		String classifier = null;
+		String featureSettingsFilename = null;
 		boolean headless = false;
 		String storeClassifiersPath = null;
 		boolean closeLabkitAfterCalculatingResult = true;
@@ -222,6 +231,10 @@ public class LabkitImarisPlugin implements Command
 			else if ( aCommand.mName == "Classifier" )
 			{
 				classifier = aCommand.mParams;
+			}
+			else if ( aCommand.mName == "FeatureSettings" )
+			{
+				featureSettingsFilename = aCommand.mParams;
 			}
 			else if ( aCommand.mName == "Headless" )
 			{
@@ -244,7 +257,7 @@ public class LabkitImarisPlugin implements Command
 		final ImarisApplication app = ( applicationId == -1 )
 				? imaris.getApplication()
 				: imaris.getApplicationByID( applicationId );
-		new LabkitImarisPlugin().run( context, app, classifier, headless, storeClassifiersPath, closeLabkitAfterCalculatingResult, useGpu );
+		new LabkitImarisPlugin().run( context, app, classifier, featureSettingsFilename, headless, storeClassifiersPath, closeLabkitAfterCalculatingResult, useGpu );
 	}
 
 	/**
@@ -277,7 +290,9 @@ public class LabkitImarisPlugin implements Command
 
 	// -- Code below is copied from Imaris_Bridge --
 
-	private static final String[] mCommandsString = { "EndPoints", "ApplicationID", "Classifier", "Headless", "StoreClassifiersPath", "UseGPU" };
+	private static final String[] mCommandsString = {
+		"EndPoints", "ApplicationID", "Classifier", "FeatureSettings", "Headless", "StoreClassifiersPath", "CloseLabkitAfterCalculatingResult", "UseGPU"
+	};
 
 	private static class cCommand {
 		public cCommand(String aName) {

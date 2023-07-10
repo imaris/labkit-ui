@@ -31,6 +31,8 @@ package sc.fiji.labkit.ui.segmentation.weka;
 
 import sc.fiji.labkit.ui.segmentation.SegmentationPlugin;
 import sc.fiji.labkit.ui.segmentation.Segmenter;
+import sc.fiji.labkit.pixel_classification.gson.GsonUtils;
+import sc.fiji.labkit.pixel_classification.pixel_feature.settings.FeatureSettings;
 import sc.fiji.labkit.pixel_classification.utils.SingletonContext;
 import org.scijava.Context;
 import org.scijava.plugin.Parameter;
@@ -48,6 +50,9 @@ public class PixelClassificationPlugin implements SegmentationPlugin {
 	@Parameter(required = false)
 	Boolean useGpu = false;
 
+	@Parameter(required = false)
+	String featureSettingsFilename;
+
 	@Override
 	public String getTitle() {
 		return "Labkit Pixel Classification";
@@ -56,6 +61,12 @@ public class PixelClassificationPlugin implements SegmentationPlugin {
 	@Override
 	public Segmenter createSegmenter() {
 		TrainableSegmentationSegmenter segmenter = new TrainableSegmentationSegmenter(context);
+
+		if ( featureSettingsFilename != null ) {
+			FeatureSettings featureSettings = FeatureSettings.fromJson( GsonUtils.read( featureSettingsFilename ) );
+			segmenter.setFeatureSettings( featureSettings );
+		}
+
 		segmenter.setUseGpu( useGpu );
 		return segmenter;
 	}
@@ -72,13 +83,14 @@ public class PixelClassificationPlugin implements SegmentationPlugin {
 	}
 
 	public static SegmentationPlugin create() {
-		return create( false );
+		return create( false, null );
 	}
 
-	public static SegmentationPlugin create( boolean useGpu ) {
+	public static SegmentationPlugin create( boolean useGpu, String featureSettingsFilename ) {
 		Context context = SingletonContext.getInstance();
 		PixelClassificationPlugin plugin = new PixelClassificationPlugin();
 		plugin.useGpu = useGpu;
+		plugin.featureSettingsFilename = featureSettingsFilename;
 		context.inject(plugin);
 		return plugin;
 	}

@@ -31,6 +31,7 @@ package sc.fiji.labkit.ui.plugin.imaris;
 
 import bdv.export.ProgressWriterConsole;
 import java.io.File;
+import java.util.ArrayList;
 import net.imagej.Dataset;
 import net.imagej.DatasetService;
 import net.imagej.ImgPlus;
@@ -44,6 +45,8 @@ import net.imglib2.loops.LoopBuilder;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.util.Intervals;
+import net.imglib2.util.Pair;
+import net.imglib2.util.ValuePair;
 import net.imglib2.view.Views;
 import org.scijava.Cancelable;
 import org.scijava.Context;
@@ -51,8 +54,13 @@ import org.scijava.ItemIO;
 import org.scijava.command.Command;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
+
+import sc.fiji.labkit.pixel_classification.gson.GsonUtils;
+import sc.fiji.labkit.pixel_classification.pixel_feature.settings.FeatureSettings;
+import sc.fiji.labkit.ui.InitialLabeling;
 import sc.fiji.labkit.ui.inputimage.DatasetInputImage;
 import sc.fiji.labkit.ui.inputimage.ImgPlusViewsOld;
+import sc.fiji.labkit.ui.labeling.Labeling;
 import sc.fiji.labkit.ui.segmentation.SegmentationUtils;
 import sc.fiji.labkit.ui.segmentation.weka.TrainableSegmentationSegmenter;
 import sc.fiji.labkit.ui.utils.DimensionUtils;
@@ -78,6 +86,9 @@ public class ComputeProbabilityMapWithLabkitPlugin implements Command, Cancelabl
 	@Parameter
 	private File segmenter_file;
 
+	@Parameter
+	private File featureSettings_file;
+
 	@Parameter(type = ItemIO.OUTPUT)
 	private Dataset output;
 
@@ -86,10 +97,24 @@ public class ComputeProbabilityMapWithLabkitPlugin implements Command, Cancelabl
 
 	@Override
 	public void run() {
+		DatasetInputImage inputImage = new DatasetInputImage(input);
+
 		TrainableSegmentationSegmenter segmenter = new TrainableSegmentationSegmenter(context);
 		segmenter.setUseGpu(use_gpu);
-		segmenter.openModel(segmenter_file.getAbsolutePath());
-		ImgPlus<?> imgPlus = new DatasetInputImage(input).imageForSegmentation();
+
+		if (segmenter_file != null) {
+			segmenter.openModel(segmenter_file.getAbsolutePath());
+		}
+		else if (featureSettings_file != null) {
+			FeatureSettings featureSettings = FeatureSettings.fromJson(GsonUtils.read(featureSettings_file.getAbsolutePath())); 
+			segmenter.setFeatureSettings(featureSettings);
+			Labeling initialLabeling = InitialLabeling.initialLabeling(context, inputImage);
+			ArrayList<Pair<ImgPlus<?>, Labeling>> trainingData = new ArrayList<Pair<ImgPlus<?>, Labeling>>();
+			trainingData.add(new ValuePair<>(inputImage.imageForSegmentation(), initialLabeling));
+			segmenter.train(trainingData);
+		}
+				
+		ImgPlus<?> imgPlus = inputImage.imageForSegmentation();
 		Img< UnsignedByteType > outputImg = useCache( imgPlus )
 				? calculateProbabilityMapOnCachedImg( segmenter, imgPlus )
 				: calculateProbabilityMapOnArrayImg( segmenter, imgPlus );
